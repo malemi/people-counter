@@ -9,7 +9,7 @@ from input_source import InputSource
 from input_source import ObjectDirection
 from input_frame import InputFrame
 from frame_processor import FrameProcessor
-import face_det_event
+from face_det_event import FaceDetEvent
 from mjpeg.client import MJPEGClient
 import time
 
@@ -31,7 +31,8 @@ import time
 # video_capture = cv2.VideoCapture(sys.argv[1])
 
 
-url = 'http://192.168.4.10:8080/video/mjpeg'
+#url = 'http://192.168.4.2:8080/video/mjpeg'  #applicativo android camon
+url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
 source = InputSource("Cam1","Locale",ObjectDirection.ENTERING)
 client = MJPEGClient(url)
 processor = FrameProcessor(source)
@@ -59,6 +60,27 @@ def getMjpegFrame(resize_factor = 1.0):
     else:
         small_frame = cv2.resize(frame, (0, 0), fx=resize_factor, fy=resize_factor)
         return small_frame
+
+
+def drawOverlay(cvFrame, ev:FaceDetEvent):
+    top = ev.location[0]
+    right = ev.location[1]
+    bottom = ev.location[2]
+    left = ev.location[3]
+
+    top *= 1
+    right *= 1
+    bottom *= 1
+    left *= 1
+
+    # Draw a box around the face
+    cv2.rectangle(cvFrame, (left, top), (right, bottom), (0, 0, 255), 2)
+
+    # Draw a label with a name below the face
+    cv2.rectangle(cvFrame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+    font = cv2.FONT_HERSHEY_DUPLEX
+    cv2.putText(cvFrame, ev.name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+
 
 startMjpegClient()
 
@@ -147,7 +169,7 @@ while True:
                  mkdir(encoding_path + name)
                  np.save(encoding_path + name + "/" + str(abs(hash(str(ev.encoding)))), ev.encoding)
                  seen_face_names.append(name)
-                 seen_face_encodings.append(face_encoding)
+                 seen_face_encodings.append(ev.encoding)
 
             face_names.append(name)
 
@@ -156,24 +178,7 @@ while True:
 
     # Display the results
     for ev in events:
-        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-        top = ev.location[0]
-        right = ev.location[1]
-        bottom = ev.location[2]
-        left = ev.location[3]
-
-        top *= 1
-        right *= 1
-        bottom *= 1
-        left *= 1
-
-        # Draw a box around the face
-        cv2.rectangle(currentRawFrame, (left, top), (right, bottom), (0, 0, 255), 2)
-
-        # Draw a label with a name below the face
-        cv2.rectangle(currentRawFrame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-        font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(currentRawFrame,  ev.name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+        drawOverlay(currentRawFrame,ev)
 
     # Display the resulting image
     cv2.imshow('Video', currentRawFrame)
@@ -182,6 +187,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Release handle to the webcam
+
 #video_capture.release()
 cv2.destroyAllWindows()

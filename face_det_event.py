@@ -13,6 +13,7 @@ class FaceDetEvent:
         self.timestamp = timestamp
         # camera string id
         self.inputSource = inputSource
+        self.id = str(abs(hash(str(encoding))))
         self.name = str(uuid.uuid1())
 
     def __str__(self):

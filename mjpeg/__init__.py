@@ -121,9 +121,11 @@ def open_mjpeg_stream(stream):
     h = stream.info()
 
     boundary = h.get_param('boundary', header='content-type', unquote=True)
+
     if boundary is None:
         raise ProtoError('Content-Type header does not provide boundary string')
-    boundary = '--' + boundary
+    if boundary != "--myboundary":  #fix for cam2web
+        boundary = '--' + boundary
 
     return boundary
 
