@@ -31,8 +31,8 @@ import time
 # video_capture = cv2.VideoCapture(sys.argv[1])
 
 
-#url = 'http://192.168.4.2:8080/video/mjpeg'  #applicativo android camon
-url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
+url = 'http://192.168.4.10:8080/video/mjpeg'  #applicativo android camon
+#url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
 source = InputSource("Cam1","Locale",ObjectDirection.ENTERING)
 client = MJPEGClient(url)
 processor = FrameProcessor(source)
@@ -63,10 +63,10 @@ def getMjpegFrame(resize_factor = 1.0):
 
 
 def drawOverlay(cvFrame, ev:FaceDetEvent):
-    top = ev.location[0]
-    right = ev.location[1]
-    bottom = ev.location[2]
-    left = ev.location[3]
+    top = ev.boundingRect.y
+    right = ev.boundingRect.x + ev.boundingRect.w
+    bottom = ev.boundingRect.y + ev.boundingRect.h
+    left = ev.boundingRect.x
 
     top *= 1
     right *= 1
@@ -84,56 +84,7 @@ def drawOverlay(cvFrame, ev:FaceDetEvent):
 
 startMjpegClient()
 
-images_path = "./images/"
-images = []
-known_face_names = []
-# write the encodings of known images
-
-for d in listdir(images_path):
-    if d[0] == '.':
-        continue
-# Load known pictures and name
-    path = images_path + d + "/"
-    for image in listdir(path):
-        if image[0] == '.':
-            continue
-        known_face_names.append(d)
-        images.append(face_recognition.load_image_file(path + "/" + image))
-        
-# encode this pictures and save the encoding
-encoding_path = "./encodings/"
-for i,name in enumerate(known_face_names):
-    try:
-        mkdir(encoding_path + name)
-    except FileExistsError:
-        shutil.rmtree(encoding_path + name)
-        mkdir(encoding_path + name)
-    enc = face_recognition.face_encodings(images[i])[0]
-    np.save(encoding_path + name + "/" + str(abs(hash(str(enc)))), enc)
-
-
-# Fill known_face_encodings with all encodings in the 
-# encodings directory (which has all images from famous
-# people and from past customers - if it's not from scratch)
-
-seen_face_encodings = []
-seen_face_names = []
-for name in  listdir(encoding_path):
-    if name[0] == '.':
-        continue    
-    for enc in listdir(encoding_path + name):
-        if enc[0] == '.':
-            continue        
-        seen_face_encodings.append(np.load((encoding_path + name + "/" + enc)))
-        seen_face_names.append(name)
-
-assert(len(seen_face_names) == len(seen_face_encodings))
-        
-# Initialize some variables
-face_locations = []
-face_encodings = []
-face_names = []
-process_this_frame = True
+f = open("face_detected.log","a+")
 
 #while (video_capture.isOpened()):
     # Grab a single frame of video
@@ -143,49 +94,28 @@ while True:
     currentRawFrame = getMjpegFrame()
     inputFrame = InputFrame(currentRawFrame,source,time.time() * 1000)
     # Only process every other frame of video to save time
-    if process_this_frame:
-        events = processor.process(inputFrame)
+    events = processor.process(inputFrame)
 
-        face_names = []
-        for index, ev in enumerate(events):
+    face_names = []
+    for index, ev in enumerate(events):
+
+        print(ev.toCsv())
+        f.write(ev.toCsv()+"\n")
+        f.flush()
 
 
-            # See if the face is a match for the known face(s)
-            matches = face_recognition.compare_faces(seen_face_encodings, ev.encoding)
-            name = str(uuid.uuid1())
-
-            # # If a match was found in known_face_encodings, just use the first one.
-            # if True in matches:
-            #     first_match_index = matches.index(True)
-            #     name = known_face_names[first_match_index]
-
-            # Or instead, use the known face with the smallest distance to the new face
-            
-            face_distances = face_recognition.face_distance(seen_face_encodings, ev.encoding)
-            best_match_index = np.argmin(face_distances)
-            if matches[best_match_index]:
-                name = seen_face_names[best_match_index]
-            else:
-                 mkdir(encoding_path + name)
-                 np.save(encoding_path + name + "/" + str(abs(hash(str(ev.encoding)))), ev.encoding)
-                 seen_face_names.append(name)
-                 seen_face_encodings.append(ev.encoding)
-
-            face_names.append(name)
-
-    process_this_frame = not process_this_frame
 
 
     # Display the results
-    for ev in events:
-        drawOverlay(currentRawFrame,ev)
+    #for ev in events:
+    #    drawOverlay(currentRawFrame,ev)
 
     # Display the resulting image
-    cv2.imshow('Video', currentRawFrame)
+    #cv2.imshow('Video', currentRawFrame)
 
     # Hit 'q' on the keyboard to quit!
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    #if cv2.waitKey(1) & 0xFF == ord('q'):
+    #    break
 
 
 #video_capture.release()

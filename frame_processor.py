@@ -2,10 +2,11 @@ from input_source import  InputSource
 from input_frame import InputFrame
 from face_det_event import FaceDetEvent
 import face_recognition
-
+import numpy as np
 
 class FaceDetStats:
-    def __init__(self, firstDetTime:int, nOccurencesSinceFirstDetTime:int):
+    def __init__(self, firstDetTime:int, encoding,  nOccurencesSinceFirstDetTime:int):
+        self.encoding = encoding
         self.firstDetTime = firstDetTime
         self.nOccurencesSinceFirstDetTime = nOccurencesSinceFirstDetTime
 
@@ -15,7 +16,7 @@ class FrameProcessor:
 
     eventsById = {}
 
-    DEBOUNCE_TIME_MS = 10000
+    DEBOUNCE_TIME_MS = 300000
 
     def __init__(self, source: InputSource):
         self.source = source
@@ -54,22 +55,37 @@ class FrameProcessor:
 
         # we record events by encodings
         if ev.id in self.eventsById:
-            #event is already in the history
-            fds: FaceDetStats = self.eventsById[ev.id]
-            fds.nOccurencesSinceFirstDetTime += 1
-            #check date time
-            delta_ms = ev.timestamp - fds.firstDetTime
-            #pass enough time since first detection. I can retrigger event
-            if delta_ms > self.DEBOUNCE_TIME_MS:
-                #reset stats starting from now
-                fds.firstDetTime = ev.timestamp
-                fds.nOccurencesSinceFirstDetTime = 1
-                return ev
-            else:
-                #event is dropped because is to close to the previous one
-                return None
-
+           return self.__processEventWithIdAlreadyPresentInHistory(ev)
         else:
-            #not present in stats. Initialize stats
-            self.eventsById[ev.id] = FaceDetStats(ev.timestamp,1)
+            recordedEncodings = []
+            for id,fds in self.eventsById.items():
+                recordedEncodings.append(fds.encoding)
+
+
+            matches = face_recognition.compare_faces(recordedEncodings, ev.encoding,0.7)
+            matchedIndexes = [i for i in range(len(matches)) if matches[i]]
+            #encoding match an old encoding. Use the encoding present in archive
+            if len(matchedIndexes)>0:
+                ev.replaceEnconding(recordedEncodings[matchedIndexes[0]])
+                return self.__processEventWithIdAlreadyPresentInHistory(ev)
+            else:
+                #not present in stats. Initialize stats
+                self.eventsById[ev.id] = FaceDetStats(ev.timestamp,ev.encoding,1)
+                np.save("./encodings/" + ev.id, ev.encoding)
+                return ev
+
+    def __processEventWithIdAlreadyPresentInHistory(self,ev):
+        fds: FaceDetStats = self.eventsById[ev.id]
+        fds.nOccurencesSinceFirstDetTime += 1
+        # check date time
+        delta_ms = ev.timestamp - fds.firstDetTime
+        # pass enough time since first detection. I can retrigger event
+        if delta_ms > self.DEBOUNCE_TIME_MS:
+            # reset stats starting from now
+            fds.firstDetTime = ev.timestamp
+            fds.nOccurencesSinceFirstDetTime = 1
             return ev
+        else:
+
+            # event is dropped because is to close to the previous one
+            return None
