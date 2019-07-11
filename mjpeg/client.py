@@ -148,6 +148,7 @@ class MJPEGClient(Thread):
         while not self.stop:
             try:
                 with urllib.request.urlopen(self.url) as s:
+                    print("AAAAA: ", self.url, s, s.info().get_boundary())
                     self.process_stream(s)
             except EOFError:
                 pass

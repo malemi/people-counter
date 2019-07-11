@@ -119,7 +119,16 @@ def open_mjpeg_stream(stream):
     if stream.status != 200:
         raise ProtoError('Invalid response from server: %d' % stream.status)
     h = stream.info()
-
+#    print("HHHHH-1 ", dir(stream))
+#
+#    aaa = stream.read(1000)
+#    while (aaa):
+#        print(aaa)
+#        aaa = stream.read(10)
+#    print("HHHHH-3 ", [i for i in stream.readlines()])
+#    
+#              
+#    print("HHHHH ", h)
     boundary = h.get_param('boundary', header='content-type', unquote=True)
 
     if boundary is None:
