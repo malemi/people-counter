@@ -11,6 +11,10 @@ profile
 # Emacs
 *~
 
+# encodings and pictures
+encodings/
+images/
+
 # Distribution / packaging
 .Python
 env/
