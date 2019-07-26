@@ -12,8 +12,9 @@ profile
 *~
 
 # encodings and pictures
-encodings/
-images/
+encodings/*
+images/*
+*.mp4
 
 # Distribution / packaging
 .Python
