@@ -137,15 +137,12 @@ class Session:
         # Start the client in a background thread
         self.client.start()
 
-    def __get_frame(self):
+    def get_frame(self):
         if self.camera_type == CameraType.MAC_WEBCAM:
             # Grab a single frame of video
             ret, frame = self.video_capture.read()
-            # convert frame from BGR to RGB (openCV uses BGR)
-            rgb_frame = frame[:, :, ::-1]
-
             # Resize frame of video to 1/4 size for faster face recognition processing
-            return ret, cv2.resize(rgb_frame, (0, 0),
+            return ret, cv2.resize(frame, (0, 0),
                                    fx=self.__resize_factor,
                                    fy=self.__resize_factor)
 
@@ -157,20 +154,17 @@ class Session:
             # decode jpeg
             # TODO check if b&w is better, so we get rid of BGR-RGB stuff
             frame = cv2.imdecode(x, 1)
-            # convert frame from BGR to RGB (openCV uses BGR)
-            rgb_frame = frame[:, :, ::-1]
-
             self.client.enqueue_buffer(buf)
 
-            return True, cv2.resize(rgb_frame, (0, 0),
-                              fx=self.__resize_factor,
-                              fy=self.__resize_factor)
+            return True, cv2.resize(frame, (0, 0),
+                                    fx=self.__resize_factor,
+                                    fy=self.__resize_factor)
+
         elif self.camera_type == CameraType.SURVEILLANCE:
             ret, frame = self.video_capture.read()
             if not ret:
                 return False, None
-            rgb_frame = frame[:, :, ::-1]
-            return ret, cv2.resize(rgb_frame, (0, 0),
+            return ret, cv2.resize(frame, (0, 0),
                               fx=self.__resize_factor,
                               fy=self.__resize_factor)
 
@@ -206,17 +200,17 @@ class Session:
         #  ipcam: ?
         skip_images = 0  # every other skip_images images are analysed
         image_number = 0
-        ret = True
-        while ret:
+        while self.video_capture.isOpened():
             image_number += 1
             if skip_images > 0 and (image_number % skip_images == 0):
                 continue
 
-            ret, current_raw_frame = self.__get_frame()
+            ret, current_raw_frame = self.get_frame()
             input_frame = InputFrame(current_raw_frame,
                                      self.source,
                                      time.time() * 1000)
-            events = self.processor.process(input_frame)
+            events = self.processor.process(frame=input_frame,
+                                            invert_bgr=True)
 
             for index, ev in enumerate(events):
 

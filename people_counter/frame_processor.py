@@ -31,7 +31,17 @@ class FrameProcessor:
         self.max_visit_time_hours = max_visit_time_hours
         self.tolerance = tolerance  # faces are considered the same if distance < tolerance
 
-    def process(self, frame: InputFrame) -> List[FaceDetectionEvent]:
+    def process(self, frame: InputFrame, invert_bgr=False) -> List[FaceDetectionEvent]:
+        """
+
+        :param frame:
+        :param invert_bgr: OpenCV uses BGR, in case the frame will be inverted
+        :return:
+        """
+        if invert_bgr:
+            # convert frame from BGR to RGB (openCV uses BGR)
+            frame.invert_bgr()
+
         events: List[FaceDetectionEvent] = []
         # Find all the faces and face encodings in the current frame of video
 
@@ -62,7 +72,6 @@ class FrameProcessor:
         :param ev:
         :return:
         """
-        print(">>>>>>>>  encoding_buffer shape: " + str(self.encoding_buffer.shape))
         result = None
         found_recorded = False
         found_imported = False

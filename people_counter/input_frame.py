@@ -8,3 +8,9 @@ class InputFrame:
         self.inputSource = input_source
         self.timeStamp = time_stamp
 
+    def invert_bgr(self):
+        """
+        convert frame from BGR to RGB (openCV uses BGR)
+        :return:
+        """
+        self.frame = self.frame[:, :, ::-1]
