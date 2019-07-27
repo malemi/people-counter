@@ -7,7 +7,7 @@ from people_counter.frame_processor import FrameProcessor
 from people_counter.face_detection import FaceDetectionEvent
 from mjpeg.client import MJPEGClient
 import time
-from os import listdir, mkdir
+import os
 import face_recognition
 import shutil
 from typing import List
@@ -52,7 +52,7 @@ class Session:
                 logging.info("Opened file " + str(video_input))
                 self.camera_type = CameraType.SURVEILLANCE
                 self.source = InputSource(self.camera_type, self.location, ObjectDirection.ENTERING)
-                pass
+
             else:
                 raise ValueError("'video_input' must be either valid url, video file or 'webcam'")
         self.images_path = images_path
@@ -66,7 +66,8 @@ class Session:
 
         self.load_known_faces()  # put in encoding_path the faces in images_path
         # load a list of all past encoding, with timestamp = (now - visit_time)
-        self.load_imported_events()
+        if os.path.isdir(encoding_path):
+            self.load_imported_events()
         self.processor = FrameProcessor(self.source,
                                         self.max_visit_time_hours,
                                         self.imported_events)
@@ -81,12 +82,12 @@ class Session:
         if not shutil.os.access(self.images_path, 400):
             logging.info("load_known_faces: Image directory " + self.images_path + " not found, nothing added.")
             return None
-        for d in listdir(self.images_path):
+        for d in os.listdir(self.images_path):
             if d[0] == '.':
                 continue
             # Load known pictures and name
             path = self.images_path + d + "/"
-            for image in listdir(path):
+            for image in os.listdir(path):
                 if image[0] == '.':
                     continue
                 self.known_face_names.append(d)
@@ -94,10 +95,10 @@ class Session:
 
         for i, name in enumerate(self.known_face_names):
             try:
-                mkdir(self.encoding_path + name)
+                os.mkdir(self.encoding_path + name)
             except FileExistsError:
                 shutil.rmtree(self.encoding_path + name)
-                mkdir(self.encoding_path + name)
+                os.mkdir(self.encoding_path + name)
             enc = face_recognition.face_encodings(self.images[i])[0]
             np.save(self.encoding_path + name + "/" + FaceDetectionEvent.make_id(enc), enc)
             logging.info("load_known_faces: saved image of " + str(name) + " in " + str(self.encoding_path))
@@ -110,10 +111,10 @@ class Session:
             TODO Eventually it can re-written to get data from DB
         """
         logging.info("Loading imported event from " + str(self.encoding_path))
-        for name in listdir(self.encoding_path):
+        for name in os.listdir(self.encoding_path):
             if name[0] == '.':
                 continue
-            for enc in listdir(self.encoding_path + name):
+            for enc in os.listdir(self.encoding_path + name):
                 if enc[0] == '.':
                     continue
                 ev = FaceDetectionEvent(location=[0, 0, 0, 0],
@@ -144,11 +145,11 @@ class Session:
             rgb_frame = frame[:, :, ::-1]
 
             # Resize frame of video to 1/4 size for faster face recognition processing
-            return cv2.resize(rgb_frame, (0, 0),
-                              fx=self.__resize_factor,
-                              fy=self.__resize_factor)
+            return ret, cv2.resize(rgb_frame, (0, 0),
+                                   fx=self.__resize_factor,
+                                   fy=self.__resize_factor)
 
-        else:
+        elif self.camera_type == CameraType.ANDROID_CAMON:
             # fetch jpeg frame from client queue
             buf = self.client.dequeue_buffer()
             jpeg_data = buf.data[:buf.used]
@@ -161,7 +162,15 @@ class Session:
 
             self.client.enqueue_buffer(buf)
 
-            return cv2.resize(rgb_frame, (0, 0),
+            return True, cv2.resize(rgb_frame, (0, 0),
+                              fx=self.__resize_factor,
+                              fy=self.__resize_factor)
+        elif self.camera_type == CameraType.SURVEILLANCE:
+            ret, frame = self.video_capture.read()
+            if not ret:
+                return False, None
+            rgb_frame = frame[:, :, ::-1]
+            return ret, cv2.resize(rgb_frame, (0, 0),
                               fx=self.__resize_factor,
                               fy=self.__resize_factor)
 
@@ -195,18 +204,18 @@ class Session:
         # TODO:
         #  webcam: while(video_capture.isOpened())
         #  ipcam: ?
-        skip_images = 2  # every other skip_images images are analysed
+        skip_images = 0  # every other skip_images images are analysed
         image_number = 0
-        while True:
+        ret = True
+        while ret:
             image_number += 1
-            if image_number % skip_images == 0:
+            if skip_images > 0 and (image_number % skip_images == 0):
                 continue
 
-            current_raw_frame = self.__get_frame()
+            ret, current_raw_frame = self.__get_frame()
             input_frame = InputFrame(current_raw_frame,
                                      self.source,
                                      time.time() * 1000)
-
             events = self.processor.process(input_frame)
 
             for index, ev in enumerate(events):
@@ -215,16 +224,16 @@ class Session:
                 f.write(ev.to_csv() + "\n")
                 f.flush()
                 if ev.virgin:
-                    mkdir(self.encoding_path + str(ev.name))
+                    os.mkdir(self.encoding_path + str(ev.name))
                     np.save(self.encoding_path + str(ev.name) + "/" + ev.id, ev.encoding)
 
+            # Display the resulting image
+            cv2.imshow('Video', current_raw_frame)
             # Display the results for webcam
             for ev in events:
                 Session.draw_overlay(current_raw_frame, ev)
 
         f.close()
-    # Display the resulting image
-    #cv2.imshow('Video', currentRawFrame)
 
     # Hit 'q' on the keyboard to quit!
     #if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -236,11 +245,12 @@ class Session:
 
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
-url = 'http://192.168.1.74:8080/video/mjpeg'  #applicativo android camon
-url = 'http://192.168.1.2:8080/video/mjpeg'  #applicativo android camon
-#url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
+video_input = 'http://192.168.1.74:8080/video/mjpeg'  #applicativo android camon
+video_input = 'http://192.168.1.2:8080/video/mjpeg'  #applicativo android camon
+# url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
+video_input = "webcam"
+video_input = "dry.mp4"
 
-
-session = Session(video_input="webcam")
+session = Session(video_input=video_input)
 
 session.run()

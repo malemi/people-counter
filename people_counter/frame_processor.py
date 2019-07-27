@@ -146,5 +146,5 @@ class FrameProcessor:
         if delta_ms > self.max_visit_time_hours*86400*1000:
             return ev
         else:
-            # event is dropped because is to close to the previous one
+            # event is dropped because is too close to the previous one
             return None
