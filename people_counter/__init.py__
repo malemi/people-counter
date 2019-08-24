@@ -1,2 +1,2 @@
-from shop_counter.face_detection_statistics import FaceDetectionStatistics
-from shop_counter.frame_processor import FrameProcessor
+from people_counter.face_detection import FaceDetectionStats
+from people_counter.frame_processor import FrameProcessor

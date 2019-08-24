@@ -175,6 +175,8 @@ class Session:
         bottom = ev.boundingRect.y + ev.boundingRect.h
         left = ev.boundingRect.x
 
+        print("!!!!!!!!!!!!!!!!!!!" + str(top) + " " + str(right) + " " + str(bottom) + " " + str(left))
+
         top *= 1  # TODO put self.resize_factor
         right *= 1
         bottom *= 1
@@ -201,47 +203,43 @@ class Session:
         skip_images = 0  # every other skip_images images are analysed
         image_number = 0
         while self.video_capture.isOpened():
+            ret, current_raw_frame = self.get_frame()
+            if ret is True:
+                cv2.imshow('Frame', current_raw_frame)
+                # Bug in CV2? You need this to show the video
+                if cv2.waitKey(25) & 0xFF == ord('q'):
+                    break
+
             image_number += 1
             if skip_images > 0 and (image_number % skip_images == 0):
                 continue
 
-            ret, current_raw_frame = self.get_frame()
             input_frame = InputFrame(current_raw_frame,
                                      self.source,
                                      time.time() * 1000)
+
             events = self.processor.process(frame=input_frame,
                                             invert_bgr=True)
 
             for index, ev in enumerate(events):
 
-                print(ev.to_csv())
+                logging.info("Registering event " + ev.to_csv())
                 f.write(ev.to_csv() + "\n")
                 f.flush()
                 if ev.virgin:
                     os.mkdir(self.encoding_path + str(ev.name))
                     np.save(self.encoding_path + str(ev.name) + "/" + ev.id, ev.encoding)
 
-            # Display the resulting image
-            cv2.imshow('Video', current_raw_frame)
             # Display the results for webcam
             for ev in events:
                 Session.draw_overlay(current_raw_frame, ev)
 
         f.close()
 
-    # Hit 'q' on the keyboard to quit!
-    #if cv2.waitKey(1) & 0xFF == ord('q'):
-    #    break
-
-
-#video_capture.release()
-        #cv2.destroyAllWindows()
-
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 video_input = 'http://192.168.1.74:8080/video/mjpeg'  #applicativo android camon
 video_input = 'http://192.168.1.2:8080/video/mjpeg'  #applicativo android camon
-# url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
 video_input = "webcam"
 video_input = "dry.mp4"
 
