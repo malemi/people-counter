@@ -14,6 +14,12 @@ class CameraType(Enum):
     SURVEILLANCE = 3
 
 
+class DbType(Enum):
+    ELASTIC = 0
+    POSTGRES = 1
+    MARIO = 2
+
+
 class InputSource:
     def __init__(self, camera_type: CameraType = CameraType.UNKNOWN,
                  location: str = 'Unknown',
