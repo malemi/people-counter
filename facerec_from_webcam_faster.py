@@ -241,7 +241,10 @@ video_input = 'http://192.168.1.2:8080/video/mjpeg'  #applicativo android camon
 video_input = 'http://192.168.1.4'  #ctronics
 #url = 'http://192.168.4.2:8000/camera/mjpeg'  #applicativo pc cam2web from code project
 video_input = "webcam"
-video_input = "dry.mp4"
+#video_input = "dry.mp4"
+#video_input = "rtsp://admin:admin@192.168.1.88:554/11"
+video_input = "rtsp://192.168.1.88:554/11"
+video_input = "output.mp4"
 
 session = Session(video_input=video_input)
 
